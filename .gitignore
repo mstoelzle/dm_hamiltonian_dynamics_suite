@@ -1,5 +1,8 @@
-build/
 *.pyc
 *.egg-info
 *.csv
 *.npz
+
+build/
+datasets/
+generated_datasets/
