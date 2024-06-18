@@ -444,7 +444,7 @@ class HamiltonianSystem(abc.ABC):
           **kwargs)
       yts.append(yt)
     if len(yts) > 1:
-      return jax.tree_multimap(lambda *a: jnp.concatenate(a, axis=0), *yts)
+      return jax.tree.map(lambda *a: jnp.concatenate(a, axis=0), *yts)
     else:
       return yts[0]
 
@@ -518,8 +518,8 @@ class HamiltonianSystem(abc.ABC):
     # Generate the phase-space trajectories
     x = self.generate_trajectories_dt(y0, t0, dt, params, num_steps, **kwargs)
     # Make batch leading dimension
-    x = jax.tree_map(lambda x_: jnp.swapaxes(x_, 0, 1), x)
-    x = jax.tree_multimap(lambda i, j: jnp.concatenate([i[:, None], j], axis=1),
+    x = jax.tree.map(lambda x_: jnp.swapaxes(x_, 0, 1), x)
+    x = jax.tree.map(lambda i, j: jnp.concatenate([i[:, None], j], axis=1),
                           y0, x)
     if within_canvas_bounds:
       # Check for valid trajectories
@@ -541,10 +541,10 @@ class HamiltonianSystem(abc.ABC):
         y0 = self.sample_y(new_trajectories, params, key, **kwargs)
         x = self.generate_trajectories_dt(y0, t0, dt, params, num_steps,
                                           **kwargs)
-        x = jax.tree_map(lambda x_: jnp.swapaxes(x_, 0, 1), x)
-        x = jax.tree_multimap(lambda i, j:  # pylint:disable=g-long-lambda
+        x = jax.tree.map(lambda x_: jnp.swapaxes(x_, 0, 1), x)
+        x = jax.tree.map(lambda i, j:  # pylint:disable=g-long-lambda
                               jnp.concatenate([i[:, None], j], axis=1), y0, x)
-      x, params = jax.tree_multimap(lambda *args: jnp.stack(args, axis=0),
+      x, params = jax.tree.map(lambda *args: jnp.stack(args, axis=0),
                                     *valid)
 
     hamiltonian = self.hamiltonian_from_params(params, **kwargs)
