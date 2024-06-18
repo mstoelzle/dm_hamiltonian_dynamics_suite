@@ -23,8 +23,7 @@ REQUIRED_PACKAGES = (
     "open-spiel>=1.0.1",
     "tensorflow>=2.6.0",
     "tensorflow-datasets>=4.4.0",
-    "jax==0.2.20",
-    "jaxlib==0.1.71"
+    "jax",
 )
 
 LONG_DESCRIPTION = "\n".join([(
