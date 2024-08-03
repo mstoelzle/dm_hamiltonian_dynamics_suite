@@ -429,10 +429,10 @@ class HamiltonianSystem(abc.ABC):
           method=self.method,
           num_steps=num_steps_backward,
           **kwargs)
-      yt = jax.tree_map(lambda x: jnp.flip(x, axis=0), yt)
+      yt = jax.tree.map(lambda x: jnp.flip(x, axis=0), yt)
       yts.append(yt)
     if include_t0:
-      yts.append(jax.tree_map(lambda x: x[None], y0))
+      yts.append(jax.tree.map(lambda x: x[None], y0))
     if num_steps_forward > 0:
       yt = self.simulate_integrator_dt(
           y0=y0,
@@ -526,7 +526,7 @@ class HamiltonianSystem(abc.ABC):
       valid = []
       while len(valid) < num_trajectories:
         for idx in range(x.q.shape[0]):
-          x_idx, params_idx = jax.tree_map(lambda a, i=idx: a[i], (x, params))
+          x_idx, params_idx = jax.tree.map(lambda a, i=idx: a[i], (x, params))
           position = self.canvas_position(x_idx.q, params_idx)
           if (jnp.all(position >= self.canvas_bounds().min) and
               jnp.all(position <= self.canvas_bounds().max)):

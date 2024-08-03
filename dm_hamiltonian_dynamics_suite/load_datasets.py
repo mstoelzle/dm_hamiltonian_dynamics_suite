@@ -98,7 +98,7 @@ def preprocess_batch(
         x.set_shape(shape)
       return x
 
-    batch = jax.tree_map(index, batch)
+    batch = jax.tree.map(index, batch)
 
   def convert_fn(x):
     """Converts the value of `x` to the provided precision dtype.
@@ -125,13 +125,13 @@ def preprocess_batch(
     else:
       return tf.image.convert_image_dtype(x, dtype=dtype)
 
-  batch = jax.tree_map(convert_fn, batch)
+  batch = jax.tree.map(convert_fn, batch)
   if not multi_device:
     return batch
   def reshape_for_jax_pmap(x):
     """Reshapes values such that their leading dimension is the number of local devices."""
     return tf.reshape(x, [num_local_devices, -1] + x.shape[1:].as_list())
-  return jax.tree_map(reshape_for_jax_pmap, batch)
+  return jax.tree.map(reshape_for_jax_pmap, batch)
 
 
 def load_filenames_and_parse_fn(

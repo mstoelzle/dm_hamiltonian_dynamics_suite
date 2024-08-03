@@ -175,7 +175,7 @@ def generate_sample(
       return x[0, sub_sample_index]
     else:
       return x
-  result = jax.tree_map(sub_sample, result)
+  result = jax.tree.map(sub_sample, result)
   for k in result.keys():
     if "image" in k:
       result[k] = (result[k] * 255.0).astype("uint8")
