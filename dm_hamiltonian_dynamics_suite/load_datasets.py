@@ -189,7 +189,8 @@ def load_filenames_and_parse_fn(
 def load_parsed_dataset(
     path: str,
     tfrecord_prefix: str,
-    num_shards: int,
+    threads: Optional[int] = -1,
+    num_shards: int = 1,
     shard_index: Optional[int] = None,
     keys_to_preserve: Optional[Sequence[str]] = None
 ) -> tf.data.Dataset:
@@ -201,12 +202,15 @@ def load_parsed_dataset(
   )
 
   ds = tf.data.TFRecordDataset(file_names)
+  # print(f"Loaded dataset from {path}:\n {ds}")
 
-  threads = max(1, os.cpu_count() - 4)
-  options = tf.data.Options()
-  options.threading.private_threadpool_size = threads
-  options.threading.max_intra_op_parallelism = 1
-  ds = ds.with_options(options)
+  if threads is not None:
+    if threads == -1:
+      threads = max(1, os.cpu_count() - 4)
+    options = tf.data.Options()
+    options.threading.private_threadpool_size = threads
+    options.threading.max_intra_op_parallelism = 1
+    ds = ds.with_options(options)
 
   # Shard if we don't shard by files
   if num_shards != 1:
@@ -230,8 +234,10 @@ def load_dataset(
     tfrecord_prefix: str,
     sub_sample_length: Optional[int],
     per_device_batch_size: int,
-    num_epochs: Optional[int],
-    drop_remainder: bool,
+    num_epochs: Optional[int] = None,
+    drop_remainder: bool = True,
+    threads: Optional[int] = -1,
+    prefetch: Optional[bool] = True,
     multi_device: bool = False,
     num_shards: int = 1,
     shard_index: Optional[int] = None,
@@ -258,6 +264,10 @@ def load_dataset(
     drop_remainder: If the number of examples in the dataset are not divisible
       evenly by the batch size, whether each epoch to drop the remaining
       examples, or to construct a batch with batch size smaller than usual.
+    threads: number threads to use for dataloading. 
+      If None: will not be set
+      If -1: will be automatically set to a heuristic value based on the number of cores.
+    prefetch: boolean whether to activate prefetching
     multi_device: Whether to load the dataset prepared for multi-device use
       (e.g. pmap) with leading dimension equal to the number of local devices.
     num_shards: If you want to shard the dataset, you must specify how many
@@ -286,6 +296,7 @@ def load_dataset(
     ds = load_parsed_dataset(
         path=path,
         tfrecord_prefix=tfrecord_prefix,
+        threads=threads,
         num_shards=num_shards,
         shard_index=shard_index,
         keys_to_preserve=keys_to_preserve,
@@ -294,10 +305,15 @@ def load_dataset(
       ds = ds.cache()
     if shuffle:
       ds = ds.shuffle(shuffle_buffer, seed=seed)
-    ds = ds.repeat(num_epochs)
+    if num_epochs:
+      ds = ds.repeat(num_epochs)
     ds = ds.batch(per_host_batch_size, drop_remainder=drop_remainder)
     ds = ds.map(batch_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-    return ds.prefetch(tf.data.experimental.AUTOTUNE)
+
+    if prefetch:
+      ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
+
+    return ds
 
 
 def dataset_as_iter(dataset_func, *args, **kwargs):
