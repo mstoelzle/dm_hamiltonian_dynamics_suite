@@ -233,7 +233,7 @@ def load_dataset(
     path: str,
     tfrecord_prefix: str,
     sub_sample_length: Optional[int],
-    per_device_batch_size: int,
+    batch_size: Optional[int] = None,
     num_epochs: Optional[int] = None,
     drop_remainder: bool = True,
     threads: Optional[int] = -1,
@@ -258,7 +258,7 @@ def load_dataset(
       If this is an `int` it will subsample each sequence uniformly at random
       for a sequence of the provided size. Note that all examples in the dataset
       must be at least this long, otherwise the tensorflow code might crash.
-    per_device_batch_size: The batch size to use on a single device. The actual
+    batch_size: The batch size to use on a single device. The actual
       batch size is this multiplied by the number of devices.
     num_epochs: The number of times to repeat the full dataset.
     drop_remainder: If the number of examples in the dataset are not divisible
@@ -283,7 +283,6 @@ def load_dataset(
   Returns:
     A tensorflow dataset object.
   """
-  per_host_batch_size = per_device_batch_size * jax.local_device_count()
   # Preprocessing function
   batch_fn = functools.partial(
       preprocess_batch,
@@ -307,7 +306,8 @@ def load_dataset(
       ds = ds.shuffle(shuffle_buffer, seed=seed)
     if num_epochs:
       ds = ds.repeat(num_epochs)
-    ds = ds.batch(per_host_batch_size, drop_remainder=drop_remainder)
+    if batch_size is not None:
+      ds = ds.batch(batch_size, drop_remainder=drop_remainder)
     ds = ds.map(batch_fn, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
     if prefetch:

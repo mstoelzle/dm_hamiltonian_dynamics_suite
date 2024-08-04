@@ -92,7 +92,7 @@ class TestToyDataset(parameterized.TestCase):
         path=os.path.join(folder, dataset_path),
         tfrecord_prefix="train",
         sub_sample_length=None,
-        per_device_batch_size=1,
+        batch_size=1,
         num_epochs=1,
         drop_remainder=False,
         dtype="float64"
@@ -112,7 +112,7 @@ class TestToyDataset(parameterized.TestCase):
         path=os.path.join(folder, dataset_path),
         tfrecord_prefix="test",
         sub_sample_length=None,
-        per_device_batch_size=1,
+        batch_size=1,
         num_epochs=1,
         drop_remainder=False,
         dtype="float64"
