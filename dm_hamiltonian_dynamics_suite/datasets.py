@@ -267,6 +267,7 @@ MASS_SPRING_FRICTION = (
         uniform_annulus=False,
         randomize_canvas_location=False,
         randomize_x=False,
+        num_colors=1,
         friction=0.05,
     ),
 )
