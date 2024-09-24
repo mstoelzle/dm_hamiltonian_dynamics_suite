@@ -54,6 +54,7 @@ class IdealMassSpring(hamiltonian.TimeIndependentHamiltonianSystem):
         radius_range: utils.BoxRegion,
         uniform_annulus: bool = True,
         randomize_x: bool = True,
+        actuation_range: Optional[utils.BoxRegion] = None,
         **kwargs,
     ):
         super().__init__(system_dims=1, **kwargs)
@@ -62,6 +63,7 @@ class IdealMassSpring(hamiltonian.TimeIndependentHamiltonianSystem):
         self.radius_range = radius_range
         self.uniform_annulus = uniform_annulus
         self.randomize_x = randomize_x
+        self.actuation_range = actuation_range
         render = functools.partial(
             utils.render_particles_trajectory,
             canvas_limits=self.full_canvas_bounds(),
@@ -136,7 +138,14 @@ class IdealMassSpring(hamiltonian.TimeIndependentHamiltonianSystem):
     def canvas_bounds(self) -> utils.BoxRegion:
         max_x = self.radius_range.max
         max_r = jnp.sqrt(self.m_range.max / jnp.pi)
-        return utils.BoxRegion(-max_x - max_r, max_x + max_r)
+
+        if self.actuation_range is not None:
+            assert self.k_range.min > 0.0, "Spring constant must be positive"
+            max_tau = self.actuation_range.max / self.k_range.min
+        else:
+            max_tau = 0.0
+
+        return utils.BoxRegion(-max_x - max_r - max_tau, max_x + max_r + max_tau)
 
     def canvas_position(
         self, position: jnp.ndarray, params: utils.Params

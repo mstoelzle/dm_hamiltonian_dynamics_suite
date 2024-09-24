@@ -186,6 +186,17 @@ class HamiltonianSystem(abc.ABC):
     ) -> utils.Params:
         """Samples randomly parameters."""
 
+    def sample_tau(
+        self, num_samples: int, rng_key: jnp.ndarray, **kwargs: Any
+    ) -> utils.Params:
+        if hasattr(self, "actuation_range") and self.actuation_range is not None:
+            tau = utils.uniform_annulus(
+                rng_key, num_samples, self.system_dims, self.actuation_range, True
+            )
+        else:
+            tau = None
+        return tau
+
     @abc.abstractmethod
     def simulate_analytically(
         self,
@@ -251,6 +262,7 @@ class HamiltonianSystem(abc.ABC):
         t_eval: jnp.ndarray,
         params: utils.Params,
         ivp_kwargs=None,
+        tau: Optional[utils.FloatArray] = None,
         **kwargs: Any,
     ) -> phase_space.PhaseSpace:
         """Simulates the system using scipy.integrate.solve_ivp."""
@@ -270,6 +282,11 @@ class HamiltonianSystem(abc.ABC):
                     momentum=-self.friction * dy.position,
                 )
                 dy = dy + friction_term
+            if tau is not None:
+                actuation_term = phase_space.TangentPhaseSpace(
+                    position=jnp.zeros_like(dy.position), momentum=tau
+                )
+                dy = dy + actuation_term
             return dy.single_state.reshape([-1])
 
         kwargs = dict(**self.scipy_ivp_kwargs)
@@ -288,11 +305,14 @@ class HamiltonianSystem(abc.ABC):
         num_steps: int,
         params: utils.Params,
         ivp_kwargs=None,
+        tau: Optional[utils.FloatArray] = None,
         **kwargs: Any,
     ) -> phase_space.PhaseSpace:
         """Same as `simulate_scipy` but uses `dt` and `num_steps`."""
         t_eval = utils.dt_to_t_eval(t0, dt, num_steps)
-        return self.simulate_scipy(y0, t0, t_eval, params, ivp_kwargs, **kwargs)
+        return self.simulate_scipy(
+            y0, t0, t_eval, params, ivp_kwargs, tau=tau, **kwargs
+        )
 
     def simulate_integrator(
         self,
@@ -321,11 +341,12 @@ class HamiltonianSystem(abc.ABC):
         params: utils.Params,
         method: Integrator,
         num_steps: Optional[int] = None,
+        tau: Optional[utils.FloatArray] = None,
         **kwargs: Any,
     ) -> phase_space.PhaseSpace:
         """Same as `simulate_integrator` but uses `dt` and `num_steps`."""
         hamiltonian = self.hamiltonian_from_params(params, **kwargs)
-        if self.friction == 0.0:
+        if self.friction == 0.0 and tau is None:
             return method(
                 hamiltonian,
                 y0,
@@ -343,7 +364,13 @@ class HamiltonianSystem(abc.ABC):
                     position=jnp.zeros_like(dy.position),
                     momentum=-self.friction * dy.position,
                 )
-                return dy + friction_term
+                tot = dy + friction_term
+                if tau is not None:
+                    actuation_term = phase_space.TangentPhaseSpace(
+                        position=jnp.zeros_like(dy.position), momentum=tau
+                    )
+                    tot = tot + actuation_term
+                return tot
 
             return method(
                 dy_dt,
@@ -360,6 +387,7 @@ class HamiltonianSystem(abc.ABC):
         t0: utils.FloatArray,
         t_eval: jnp.ndarray,
         params: utils.Params,
+        tau: Optional[utils.FloatArray] = None,
         **kwargs: Any,
     ) -> phase_space.PhaseSpace:
         """Generates trajectories of the system in phase space.
@@ -369,13 +397,19 @@ class HamiltonianSystem(abc.ABC):
           t0: The time instance of the initial state y0.
           t_eval: Times at which to return the computed solution.
           params: Any parameters of the Hamiltonian.
+          tau: The constant forces/torques to apply to the system.
           **kwargs: Any extra things that go into the hamiltonian.
 
         Returns:
           A phase_space.PhaseSpace instance of size NxTxD.
         """
         return self.generate_trajectories_dt(
-            y0=y0, t0=t0, dt=utils.t_eval_to_dt(t0, t_eval), params=params, **kwargs
+            y0=y0,
+            t0=t0,
+            dt=utils.t_eval_to_dt(t0, t_eval),
+            params=params,
+            tau=tau,
+            **kwargs,
         )
 
     def generate_trajectories_dt(
@@ -387,6 +421,7 @@ class HamiltonianSystem(abc.ABC):
         num_steps_forward: int,
         include_t0: bool = False,
         num_steps_backward: int = 0,
+        tau: Optional[utils.FloatArray] = None,
         **kwargs: Any,
     ) -> phase_space.PhaseSpace:
         """Same as `generate_trajectories` but uses `dt` and `num_steps`."""
@@ -405,10 +440,10 @@ class HamiltonianSystem(abc.ABC):
                 "positive include_t0 should be True."
             )
 
-        if self.try_analytic_solution and num_steps_backward == 0:
+        if self.try_analytic_solution and num_steps_backward == 0 and tau is None:
             # Try to use analytical solution
             y = self.simulate_analytically_dt(
-                y0, t0, dt, num_steps_forward, params, **kwargs
+                y0, t0, dt, num_steps_forward, params, tau=tau, **kwargs
             )
             if y is not None:
                 return y
@@ -416,7 +451,7 @@ class HamiltonianSystem(abc.ABC):
             if num_steps_backward > 0:
                 raise NotImplementedError()
             return self.simulate_scipy_dt(
-                y0, t0, dt, num_steps_forward, params, **kwargs
+                y0, t0, dt, num_steps_forward, params, tau=tau, **kwargs
             )
         yts = []
         if num_steps_backward > 0:
@@ -427,6 +462,7 @@ class HamiltonianSystem(abc.ABC):
                 params=params,
                 method=self.method,
                 num_steps=num_steps_backward,
+                tau=tau,
                 **kwargs,
             )
             yt = jax.tree.map(lambda x: jnp.flip(x, axis=0), yt)
@@ -441,6 +477,7 @@ class HamiltonianSystem(abc.ABC):
                 params=params,
                 method=self.method,
                 num_steps=num_steps_forward,
+                tau=tau,
                 **kwargs,
             )
             yts.append(yt)
@@ -456,6 +493,7 @@ class HamiltonianSystem(abc.ABC):
         t0: utils.FloatArray,
         t_eval: utils.FloatArray,
         y0: Optional[phase_space.PhaseSpace] = None,
+        tau: Optional[utils.FloatArray] = None,
         params: Optional[utils.Params] = None,
         within_canvas_bounds: bool = True,
         **kwargs: Any,
@@ -468,6 +506,7 @@ class HamiltonianSystem(abc.ABC):
           t0: The time instance of the initial state y0.
           t_eval: Times at which to return the computed solution.
           y0: Initial state. If None will be sampled with `self.sample_y`
+          tau: The constant forces/torques to apply to the system.
           params: Parameters of the Hamiltonian. If None will be sampled with
             `self.sample_params`
           within_canvas_bounds: Re-samples y0 until the trajectories is within
@@ -488,6 +527,7 @@ class HamiltonianSystem(abc.ABC):
             t0=t0,
             dt=utils.t_eval_to_dt(t0, t_eval),
             y0=y0,
+            tau=tau,
             params=params,
             within_canvas_bounds=within_canvas_bounds,
             **kwargs,
@@ -501,6 +541,7 @@ class HamiltonianSystem(abc.ABC):
         dt: utils.FloatArray,
         num_steps: Optional[int] = None,
         y0: Optional[phase_space.PhaseSpace] = None,
+        tau: Optional[utils.FloatArray] = None,
         params: Optional[utils.Params] = None,
         within_canvas_bounds: bool = True,
         **kwargs: Any,
@@ -516,9 +557,15 @@ class HamiltonianSystem(abc.ABC):
         if y0 is None:
             rng_key, key = jnr.split(rng_key)
             y0 = self.sample_y(num_trajectories, params, key, **kwargs)
+        if tau is None and hasattr(self, "sample_tau"):
+            rng_key, key = jnr.split(rng_key)
+            tau = self.sample_tau(num_trajectories, key, **kwargs)
+        # print(f"Generating {num_trajectories} trajectories with tau={tau}.")
 
         # Generate the phase-space trajectories
-        x = self.generate_trajectories_dt(y0, t0, dt, params, num_steps, **kwargs)
+        x = self.generate_trajectories_dt(
+            y0, t0, dt, params, num_steps, tau=tau, **kwargs
+        )
         # Make batch leading dimension
         x = jax.tree.map(lambda x_: jnp.swapaxes(x_, 0, 1), x)
         x = jax.tree.map(lambda i, j: jnp.concatenate([i[:, None], j], axis=1), y0, x)

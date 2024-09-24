@@ -290,6 +290,21 @@ MASS_SPRING_FRICTION = (
     ),
 )
 
+MASS_SPRING_FRICTION_ACTUATION = (
+    ideal_mass_spring.IdealMassSpring,
+    lambda: dict(  #  pylint:disable=g-long-lambda
+        k_range=utils.BoxRegion(2.0, 2.0),
+        m_range=utils.BoxRegion(0.5, 0.5),
+        radius_range=utils.BoxRegion(0.1, 1.0),
+        uniform_annulus=False,
+        randomize_canvas_location=False,
+        randomize_x=False,
+        actuation_range=utils.BoxRegion(0.0, 1.0),
+        num_colors=1,
+        friction=0.05,
+    ),
+)
+
 
 MASS_SPRING_COLORS = (
     ideal_mass_spring.IdealMassSpring,

@@ -52,6 +52,7 @@ class IdealPendulum(hamiltonian.TimeIndependentHamiltonianSystem):
         l_range: utils.BoxRegion,
         radius_range: utils.BoxRegion,
         uniform_annulus: bool = True,
+        actuation_range: Optional[utils.BoxRegion] = None,
         **kwargs,
     ):
         super().__init__(system_dims=1, **kwargs)
@@ -60,6 +61,7 @@ class IdealPendulum(hamiltonian.TimeIndependentHamiltonianSystem):
         self.l_range = l_range
         self.radius_range = radius_range
         self.uniform_annulus = uniform_annulus
+        self.actuation_range = actuation_range
         render = functools.partial(
             utils.render_particles_trajectory,
             canvas_limits=self.full_canvas_bounds(),
