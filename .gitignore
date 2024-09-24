@@ -3,6 +3,7 @@
 *.csv
 *.npz
 
+.idea/
 build/
 datasets/
 generated_datasets/
