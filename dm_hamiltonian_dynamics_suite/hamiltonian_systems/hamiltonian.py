@@ -606,17 +606,30 @@ class HamiltonianSystem(abc.ABC):
             in_axes=[0, 1],
             out_axes=1,
         )
+
+        # time sequence
         if isinstance(dt, float):
             dt = jnp.asarray([dt] * num_steps, dtype=x.q.dtype)
         t0 = jnp.asarray(t0).astype(dt.dtype)
         t = jnp.cumsum(jnp.concatenate([t0[None], dt], axis=0), axis=0)
+        ts = jnp.repeat(
+            t[None, ...], num_trajectories, axis=0
+        )
+
+        # compute the time derivative
         dx_dt = df_dt(t, x)
+
+        # render the trajectories
         rng_key, key = jnr.split(rng_key)
         image, extra = self.render_trajectories(x.q, params, rng_key, **kwargs)
         params.update(extra)
-        return dict(
-            x=x.single_state, dx_dt=dx_dt.single_state, image=image, other=params
+
+        traj_data = dict(
+            ts=ts, x=x.single_state, dx_dt=dx_dt.single_state, image=image, other=params
         )
+        if tau is not None:
+            traj_data["other"]["tau"] = tau
+        return traj_data
 
 
 class TimeIndependentHamiltonianSystem(HamiltonianSystem):
