@@ -26,9 +26,10 @@ from dm_hamiltonian_dynamics_suite.hamiltonian_systems import ideal_mass_spring
 from dm_hamiltonian_dynamics_suite.hamiltonian_systems import ideal_pendulum
 from dm_hamiltonian_dynamics_suite.hamiltonian_systems import n_body
 from dm_hamiltonian_dynamics_suite.hamiltonian_systems import utils
+from dm_hamiltonian_dynamics_suite.img_animation import animate_image_cv2
 import jax
 import jax.numpy as jnp
-import numpy as np
+import numpy as onp
 import tensorflow as tf
 
 PipelineOutput = Optional[
@@ -70,10 +71,10 @@ def save_features(
         else:
             if isinstance(v, tf.Tensor):
                 v = v.numpy()
-            if isinstance(v, (np.ndarray, jnp.ndarray)):
+            if isinstance(v, (onp.ndarray, jnp.ndarray)):
                 # int32 are promoted to int64
-                if v.dtype == np.int32:
-                    file.write(f"{prefix}{k}, {v.shape}, {np.int64}\n")
+                if v.dtype == onp.int32:
+                    file.write(f"{prefix}{k}, {v.shape}, {onp.int64}\n")
                 else:
                     file.write(f"{prefix}{k}, {v.shape}, {v.dtype}\n")
             else:
@@ -93,8 +94,8 @@ def encode_example(example_dict: Mapping[str, Any]) -> Mapping[str, Any]:
         if isinstance(v, dict):
             for ki, vi in encode_example(v).items():
                 result_dict[f"{k}/{ki}"] = vi
-        elif isinstance(v, (np.ndarray, jnp.ndarray)):
-            if v.dtype == np.uint8:
+        elif isinstance(v, (onp.ndarray, jnp.ndarray)):
+            if v.dtype == onp.uint8:
                 # We encode images to png
                 if v.ndim == 4:
                     # Since encode_png accepts only a single image for a batch of images
@@ -104,9 +105,9 @@ def encode_example(example_dict: Mapping[str, Any]) -> Mapping[str, Any]:
                 result_dict[k] = tf.train.Feature(
                     bytes_list=tf.train.BytesList(value=[image_string])
                 )
-            elif v.dtype == np.int32:
+            elif v.dtype == onp.int32:
                 # int32 are promoted to int64
-                value = v.reshape([-1]).astype(np.int64)
+                value = v.reshape([-1]).astype(onp.int64)
                 result_dict[k] = tf.train.Feature(
                     int64_list=tf.train.Int64List(value=value)
                 )
@@ -114,7 +115,7 @@ def encode_example(example_dict: Mapping[str, Any]) -> Mapping[str, Any]:
                 # Since tf.Records do not support reading float64, here for any values
                 # we interpret them as int64 and store them in this format, in order
                 # when reading to be able to recover the float64 values.
-                value = v.reshape([-1]).view(np.int64)
+                value = v.reshape([-1]).view(onp.int64)
                 result_dict[k] = tf.train.Feature(
                     int64_list=tf.train.Int64List(value=value)
                 )
@@ -171,14 +172,14 @@ def generate_sample(
     steps_per_dt: int,
 ) -> Mapping[str, jnp.ndarray]:
     """Simulates a single trajectory of the system."""
-    seed = np.random.randint(0, 2 * 32 - 1)
+    seed = onp.random.randint(0, 2 * 32 - 1)
     prng_key = jax.random.fold_in(jax.random.PRNGKey(seed), index)
     total_steps = num_steps * steps_per_dt
     total_dt = dt / steps_per_dt
     result = system.generate_and_render_dt(
         num_trajectories=1, rng_key=prng_key, t0=0.0, dt=total_dt, num_steps=total_steps
     )
-    sub_sample_index = np.linspace(0.0, total_steps, num_steps + 1)
+    sub_sample_index = onp.linspace(0.0, total_steps, num_steps + 1)
     sub_sample_index = sub_sample_index.astype("int64")
 
     def sub_sample(x):
@@ -200,6 +201,7 @@ def create_pipeline(
     num_train: int,
     num_test: int,
     return_generated_examples: bool = False,
+    save_videos: bool = False,
 ) -> Callable[[], PipelineOutput]:
     """Runs the generation pipeline for the HML datasets."""
 
@@ -213,6 +215,15 @@ def create_pipeline(
                 example = generate(i)
                 if return_generated_examples:
                     train_examples.append(example)
+                if save_videos:
+                    animate_image_cv2(
+                        ts=onp.array(example["ts"]),
+                        img_ts=onp.array(example["image"]),
+                        filepath=f"{output_path}/train_{i}.mp4",
+                        speed_up=1,
+                        skip_step=1,
+                        rgb_to_bgr=True,
+                    )
                 example = tf.train.Example(
                     features=tf.train.Features(feature=encode_example(example))
                 )
@@ -222,6 +233,15 @@ def create_pipeline(
                 example = generate(num_train + i)
                 if return_generated_examples:
                     test_examples.append(example)
+                if save_videos:
+                    animate_image_cv2(
+                        ts=onp.array(example["ts"]),
+                        img_ts=onp.array(example["image"]),
+                        filepath=f"{output_path}/train_{i}.mp4",
+                        speed_up=1,
+                        skip_step=1,
+                        rgb_to_bgr=True,
+                    )
                 example = tf.train.Example(
                     features=tf.train.Features(feature=encode_example(example))
                 )

@@ -25,6 +25,7 @@ REQUIRED_PACKAGES = (
     "tensorflow>=2.6.0",
     "tensorflow-datasets>=4.4.0",
     "jax",
+    "opencv-python",
 )
 
 LONG_DESCRIPTION = "\n".join(
