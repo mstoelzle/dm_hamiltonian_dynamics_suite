@@ -41,7 +41,7 @@ LONG_DESCRIPTION = "\n".join(
 
 setup(
     name="dm_hamiltonian_dynamics_suite",
-    version="0.0.2",
+    version="0.0.3",
     description="A collection of 17 datasets based on Hamiltonian physical " "systems.",
     long_description=LONG_DESCRIPTION,
     url="https://github.com/deepmind/dm_hamiltonian_dynamics_suite",
