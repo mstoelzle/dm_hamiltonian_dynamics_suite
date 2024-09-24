@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Setup for pip package."""
+
 from setuptools import setup
 
 REQUIRED_PACKAGES = (
@@ -26,18 +27,21 @@ REQUIRED_PACKAGES = (
     "jax",
 )
 
-LONG_DESCRIPTION = "\n".join([(
-    "A suite of 17 datasets with phase space, high dimensional (visual) "
-    "observations and other measurement where appropriate that are based on "
-    "physical systems, exhibiting a Hamiltonian dynamics"
-)])
+LONG_DESCRIPTION = "\n".join(
+    [
+        (
+            "A suite of 17 datasets with phase space, high dimensional (visual) "
+            "observations and other measurement where appropriate that are based on "
+            "physical systems, exhibiting a Hamiltonian dynamics"
+        )
+    ]
+)
 
 
 setup(
     name="dm_hamiltonian_dynamics_suite",
     version="0.0.2",
-    description="A collection of 17 datasets based on Hamiltonian physical "
-                "systems.",
+    description="A collection of 17 datasets based on Hamiltonian physical " "systems.",
     long_description=LONG_DESCRIPTION,
     url="https://github.com/deepmind/dm_hamiltonian_dynamics_suite",
     author="DeepMind",
