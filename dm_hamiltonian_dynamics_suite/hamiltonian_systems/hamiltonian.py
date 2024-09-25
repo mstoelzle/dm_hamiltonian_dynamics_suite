@@ -628,7 +628,7 @@ class HamiltonianSystem(abc.ABC):
             ts=ts, x=x.single_state, dx_dt=dx_dt.single_state, image=image, other=params
         )
         if tau is not None:
-            traj_data["other"]["tau"] = tau
+            traj_data["other"]["tau"] = tau.squeeze(0)
         return traj_data
 
 
